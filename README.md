@@ -1,0 +1,375 @@
+
+# Building and Troubleshooting a Serverless Web Application
+
+This project demonstrates the end-to-end deployment of a serverless 3-tier web application using AWS Lambda, Amazon API Gateway (via Function URL), Amazon S3, and Amazon DynamoDB. Following the initial deployment, the project shifts focus to operational excellence by integrating observability using AWS X-Ray and troubleshooting real-world failures such as runtime dependency errors and IAM permission issues.
+
+## Objective
+
+-   **Provision Backend**: Manually provision a serverless backend using AWS CloudShell and the CLI.
+    
+-   **Host Frontend**: Deploy a client-side application on Amazon S3 with static website hosting.
+    
+-   **Implement Observability**: Enable distributed tracing using AWS X-Ray to visualize service maps.
+    
+-   **Troubleshoot Dependencies**: Diagnose and resolve "Module Not Found" errors using AWS Lambda Layers.
+    
+-   **Simulate Failures**: Analyze permission failures in a distributed system.
+    
+
+## Prerequisites
+
+-   An active AWS Account with Administrator access.
+    
+-   Basic familiarity with the AWS Management Console and AWS CLI.
+    
+-   Files from the repository: `dynamodb_commands.txt`, `items.json`, `lambda_function.py`, `index.html`, `error.html`, `cookie.jpg`, `layer.zip`, and `lambda_function_xray.py`.
+    
+
+----------
+
+## Step 1: Login to AWS Management Console
+
+1.  Open your web browser.
+    
+2.  Navigate to the AWS Management Console login page.
+    
+3.  Log in using your AWS credentials.
+<br>
+<p align="center">
+    <img src='./Images/1.png' width='500'/>
+</p>
+<br>    
+
+## Step 2: Initialize Database via CloudShell
+
+1.  Click the **CloudShell** icon in the top navigation bar to open the browser-based CLI.
+    
+2.  Clone the repository to the CloudShell environment:bash
+    
+    git clone [https://github.com/ACloudGuru-Resources/hands-on-aws-troubleshooting.git](https://www.google.com/search?q=https://github.com/ACloudGuru-Resources/hands-on-aws-troubleshooting.git)
+    
+3.  Navigate to the project directory:
+    
+    Bash
+    
+    ```
+    cd hands-on-aws-troubleshooting/Building_and_Troubleshooting_a_Serverless_Web_Application
+    
+    ```
+<br>
+<p align="center">
+    <img src='./Images/2.png' width='500'/>
+</p>
+<br> 
+    
+4.  Open the `dynamodb_commands.txt` file to view the table creation syntax.
+    
+5.  Execute the command from the text file to create the DynamoDB table (e.g., `fortunes`).
+<br>
+<p align="center">
+    <img src='./Images/3.png' width='400'/>
+    <img src='./Images/4.png' width='400'/><br><br>
+    <img src='./Images/5.png' width='400'/>
+</p>
+<br>     
+
+## Step 3: Populate Database Data
+
+1.  Verify the `items.json` file is present in your directory.
+    
+2.  Execute the batch-write command to populate the table with initial data:
+    
+    
+    ```
+    aws dynamodb batch-write-item --request-items file://items.json
+    
+    ```
+3.  Now check the items in table.   
+<br>
+<p align="center">
+    <img src='./Images/7.png' width='400'/>
+    <img src='./Images/8.png' width='400'/>
+</p>
+<br>
+
+## Step 4: Create IAM Role for Lambda
+
+1.  Navigate to **IAM** → **Roles** → **Create role**.
+<br>
+<p align="center">
+    <img src='./Images/9.png' width='400'/>
+</p>
+<br>
+    
+2.  Select **AWS service** and choose **Lambda** as the trusted entity.
+<br>
+<p align="center">
+    <img src='./Images/10.png' width='400'/>
+</p>
+<br>
+
+3.  Click **Next: Permissions**.
+    
+4.  Attatch policy named AmazonDynamoDBReadOnlyAccess with Basic Execution Role.
+    
+5.  Name the role (e.g., `my-lambda-role`) and create it.
+<br>
+<p align="center">
+    <img src='./Images/11.png' width='400'/>
+    <img src='./Images/12.png' width='400'/>
+</p>
+<br>
+
+## Step 5: Create Lambda Function
+
+1.  Navigate to the **AWS Lambda** console.
+    
+2.  Click **Create function**.
+<br>
+<p align="center">
+    <img src='./Images/13.png' width='400'/>
+</p>
+<br>
+    
+3.  Select **Author from scratch**.
+    
+4.  Name the function (e.g., `my-lambda-function`).
+    
+5.  Select **Python 3.14** as the runtime.
+    
+6.  Under **Permissions**, select **Use an existing role** and choose the role created in Step 4.
+<br>
+<p align="center">
+    <img src='./Images/14.png' width='400'/>
+    <img src='./Images/15.png' width='400'/>
+</p>
+<br>
+    
+7.  Copy the code from `lambda_function.py` in the repo and paste it into the **Code Source** editor.
+    
+8.  Click **Deploy**.
+
+<br>
+<p align="center">
+    <img src='./Images/16.png' width='400'/>
+    <img src='./Images/17.png' width='400'/>
+</p>
+<br>
+
+## Step 6: Configure Function URL and Test
+
+1.  Click **Test** in the Lambda console to verify the function executes without errors.
+<br>
+<p align="center">
+    <img src='./Images/18.png' width='400'/>
+</p>
+<br>
+
+2.  Navigate to the **Configuration** tab → **Function URL**.
+    
+3.  Click **Create function URL**.
+    
+4.  Select **NONE** for Auth type (to allow public access for this lab) and check **Configure CORS**.
+    
+5.  Save the configuration and copy the generated **Function URL**.
+
+<br>
+<p align="center">
+    <img src='./Images/19.png' width='400'/>
+    <img src='./Images/20.png' width='400'/>
+</p>
+<br>   
+
+## Step 7: Connect Frontend to Backend
+
+1.  Open the `index.html` file on your local machine.
+    
+2.  Paste the **Function URL** you copied in Step 6 into the temporary URL inside the script tag.
+    
+3.  Save the file.
+<br>
+<p align="center">
+    <img src='./Images/21.png' width='400'/>
+</p>
+<br>    
+
+## Step 8: Create S3 Bucket and Upload Assets
+
+1.  Navigate to the **Amazon S3** console.
+    
+2.  Click **Create bucket** and give it a unique name.
+    
+3.  Uncheck **Block all public access** and acknowledge the warning (required for public website hosting).
+    
+4.  Create the bucket.
+
+<br>
+<p align="center">
+    <img src='./Images/23.png' width='400'/>
+    <img src='./Images/24.png' width='400'/>
+</p>
+<br>
+    
+5.  Upload the modified `index.html`, `error.html`, and `cookie.jpg`.
+<br>
+<p align="center">
+    <img src='./Images/26.png' width='400'/>
+    <img src='./Images/28.png' width='400'/>
+</p>
+<br>    
+
+6.  While uploading under **Permissions** enable **Grant public read access**.
+<br>
+<p align="center">
+    <img src='./Images/29.png' width='400'/>
+</p>
+<br>
+
+## Step 9: Enable Static Website Hosting
+
+1.  Go to the **Properties** tab of your S3 bucket.
+    
+2.  Scroll down to **Static website hosting** and click **Edit**.
+
+<br>
+<p align="center">
+    <img src='./Images/30.png' width='400'/>
+    <img src='./Images/31.png' width='400'/>
+</p>
+<br>
+    
+3.  Select **Enable**.
+    
+4.  Enter `index.html` for the **Index document** and `error.html` for the **Error document**.
+    
+5.  Save changes.
+
+<br>
+<p align="center">
+    <img src='./Images/32.png' width='400'/>
+</p>
+<br>
+    
+
+## Step 10: Access the Application
+
+1.  In the S3 bucket properties, copy the **Bucket website endpoint** URL.
+    
+2.  Paste the URL into a new browser tab.
+    
+3.  Verify the website loads and displays the content (including the `cookie.jpg` image) and retrieves data from the API.
+<br>
+<p align="center">
+    <img src='./Images/33.png' width='400'/>
+    <img src='./Images/34.png' width='400'/>
+</p>
+<br>    
+
+## Step 11: Enable AWS X-Ray Tracing
+
+1.  Return to your Lambda function in the AWS Console.
+    
+2.  Go to **Configuration** → **Monitoring and operations tools**.
+    
+3.  Click **Edit**.
+    
+4.  Toggle **Active tracing** (under AWS X-Ray) to **On**.
+    
+5.  Click **Save**.
+
+<br>
+<p align="center">
+    <img src='./Images/35.png' width='400'/>
+    <img src='./Images/36.png' width='400'/>
+</p>
+<br>  
+    
+
+## Step 12: Configure Lambda Layer
+
+1.  In the Lambda console, select **Layers** from the left menu -> **Create layer**.
+    
+2.  Name the layer `XRaySDK`.
+    
+3.  Upload the `layer.zip` file from the repository.
+    
+4.  Choose **Python 3.14** as the compatible runtime and create the layer.
+    
+5.  Go back to your Lambda function, scroll to the **Layers** section, click **Add a layer**, and attach the custom layer you just created.
+
+<br>
+<p align="center">
+    <img src='./Images/37.png' width='400'/>
+    <img src='./Images/39.png' width='400'/>
+</p>
+<br>   
+
+## Step 13: Update Code for Observability
+
+1.  Open the `lambda_function_xray.py` file from the repository.
+    
+2.  Extract the import statements and the X-Ray patch code.
+<br>
+<p align="center">
+    <img src='./Images/40.png' width='400'/>
+</p>
+<br>  
+    
+3.  Update your Lambda function code by pasting these lines into the appropriate sections (imports at the top, patch code before the handler).
+    
+4.  **Deploy** the changes.
+    
+<br>
+<p align="center">
+    <img src='./Images/41.png' width='400'/>
+</p>
+<br>  
+
+## Step 14: Analyze X-Ray Traces
+
+1.  Trigger the Lambda function again by refreshing your S3 website multiple times.
+    
+2.  Navigate to **CloudWatch** → **X-Ray traces** (or the X-Ray console).
+    
+3.  Open the **Service Map** to visualize the request flow from the Client → Lambda → DynamoDB.
+    
+4.  Verify that the nodes are green (successful).
+
+<br>
+<p align="center">
+    <img src='./Images/42.png' width='400'/>
+    <img src='./Images/43.png' width='400'/>
+</p>
+<br>  
+    
+
+## Step 15: Simulate and Diagnose Failure
+
+1.  Go to the IAM role created in Step 4.
+    
+2.  Remove/Detach the DynamoDB permission policy.
+    
+3.  Refresh the S3 website (it should now fail to load data).
+    
+4.  Return to the **X-Ray traces** service map.
+    
+5.  Observe that the Lambda node or the link to DynamoDB is now showing an error (Orange/Red), confirming that the permission change successfully broke the application logic.
+
+<br>
+<p align="center">
+    <img src='./Images/45.png' width='400'/>
+    <img src='./Images/46.png' width='400'/>
+</p>
+<br>  
+<p align="center">
+    <img src='./Images/47.png' width='400'/>
+    <img src='./Images/48.png' width='400'/>
+</p>
+<br>  
+    
+
+----------
+
+## Conclusion
+
+This project demonstrates how to build, deploy, and troubleshoot a serverless web application on AWS. You learned how to connect a frontend hosted on S3 with a Lambda backend, observe system behavior using AWS X-Ray, and diagnose real issues like missing dependencies and IAM permission failures. Overall, it provides practical experience in operating and debugging serverless applications in real-world scenarios.
